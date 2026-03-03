@@ -1500,7 +1500,7 @@ class TimeZoneConverter {
             });
         }
 
-        // 启程(6点) 预设按钮事件
+        // 启诚(6点) 预设按钮事件
         const qichengAsiaBtn = document.getElementById('presetQichengAsia');
         if (qichengAsiaBtn) {
             qichengAsiaBtn.addEventListener('click', () => {
@@ -3411,7 +3411,7 @@ class TimeZoneConverter {
         this.showPresetSuccess('启诚(欧洲时间)');
     }
 
-    // 启程(6点) 预设（中国时间）
+    // 启诚(6点) 预设（中国时间）
     applyQichengAsiaPreset() {
         // 设置主国家为中国（北京时间）
         this.selectedMainCountry = '中国';
@@ -3423,7 +3423,7 @@ class TimeZoneConverter {
         this.updateCountryStatus();
         this.updateTimezoneStatus();
 
-        // 启程(6点) 模板固定为 5 个时间
+        // 启诚(6点) 模板固定为 5 个时间
         const times = ['18:00', '19:00', '20:00', '21:00', '22:00'];
         const labels = ['信号1', '信号2', '荣誉', '团队', '邀请'];
         this.mainTimeLabels = labels;
@@ -3441,7 +3441,7 @@ class TimeZoneConverter {
         this.setMainTime();
 
         // 显示成功提示
-        this.showPresetSuccess('启程(6点)');
+        this.showPresetSuccess('启诚(6点)');
     }
 
     // 启诚(10点) 预设（中国时间）
