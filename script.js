@@ -2783,7 +2783,16 @@ class TimeZoneConverter {
         const country = card.dataset.country;
         const isMain = card.dataset.isMain === 'true';
         const timeChips = card.querySelectorAll('.time-chip:not(.loading):not(.error)');
-        const lines = Array.from(timeChips).map(chip => chip.textContent.trim()).filter(t => t && t !== '--:--');
+
+        // 从 DOM 中分别读取标题和时间，避免换行和多余空白
+        const lines = Array.from(timeChips).map((chip, index) => {
+            const labelEl = chip.querySelector('.time-label');
+            const valueEl = chip.querySelector('.time-value');
+            const label = labelEl ? labelEl.textContent.trim() : `时间${index + 1}`;
+            const value = valueEl ? valueEl.textContent.trim() : chip.textContent.trim();
+            if (!value || value === '--:--') return null;
+            return `${label}: ${value}`;
+        }).filter(Boolean);
         
         if (!country || lines.length === 0) {
             this.showError('暂无有效时间可复制');
