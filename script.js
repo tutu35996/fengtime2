@@ -1433,8 +1433,6 @@ class TimeZoneConverter {
         this.selectedTargetCountry = null;
         this.timezoneCache = new Map(); // 时区数据缓存
         this.cacheExpiry = 5 * 60 * 1000; // 缓存5分钟
-        // 动态自定义模板（通过密码管理）
-        this.dynamicPresets = {};
         
         this.init();
     }
@@ -1502,11 +1500,19 @@ class TimeZoneConverter {
             });
         }
 
-        // 模板管理（需要密码）
-        const manageBtn = document.getElementById('managePresets');
-        if (manageBtn) {
-            manageBtn.addEventListener('click', () => {
-                this.openPresetManager();
+        // 启程(6点) 预设按钮事件
+        const qichengAsiaBtn = document.getElementById('presetQichengAsia');
+        if (qichengAsiaBtn) {
+            qichengAsiaBtn.addEventListener('click', () => {
+                this.applyQichengAsiaPreset();
+            });
+        }
+
+        // 启诚(10点) 预设按钮事件
+        const qichengTenBtn = document.getElementById('presetQichengTen');
+        if (qichengTenBtn) {
+            qichengTenBtn.addEventListener('click', () => {
+                this.applyQichengTenPreset();
             });
         }
     }
@@ -3198,12 +3204,17 @@ class TimeZoneConverter {
         const cards = results.querySelectorAll('.time-result-card');
         
         cards.forEach(card => {
+            const isMain = card.dataset.isMain === 'true';
             const timesContainer = card.querySelector('.multiple-times');
             if (timesContainer) {
-                // 显示--:--状态
+                // 显示刷新中的状态
                 const timeChips = timesContainer.querySelectorAll('.time-chip');
                 timeChips.forEach(chip => {
-                    chip.textContent = '--:--';
+                    // 主时间保留原来的时间，只加 loading 效果；
+                    // 目标国家显示为 --:-- 再刷新为新时间
+                    if (!isMain) {
+                        chip.textContent = '--:--';
+                    }
                     chip.classList.add('loading');
                 });
             }
@@ -3400,138 +3411,70 @@ class TimeZoneConverter {
         this.showPresetSuccess('启诚(欧洲时间)');
     }
 
-    // 打开模板管理（新增/删除自定义模板），需要密码 fengyun
-    openPresetManager() {
-        const password = window.prompt('请输入模板管理密码：');
-        if (password !== 'fengyun') {
-            this.showError('密码错误');
-            return;
-        }
-
-        const action = window.prompt('输入 1 新增模板，输入 2 删除模板：');
-        if (action === '1') {
-            this.createCustomPreset();
-        } else if (action === '2') {
-            this.deleteCustomPreset();
-        } else {
-            this.showError('未执行任何操作');
-        }
-    }
-
-    // 交互式新增自定义模板
-    createCustomPreset() {
-        const name = window.prompt('请输入新模板名称：');
-        if (!name) {
-            this.showError('模板名称不能为空');
-            return;
-        }
-
-        const country = window.prompt('请输入主国家名称（例如：中国）：');
-        if (!country || !countryTimezones[country]) {
-            this.showError('主国家名称无效或不存在于配置中');
-            return;
-        }
-
-        const timesInput = window.prompt('请输入时间列表（24小时制），使用逗号分隔，例如：22:00,23:00,00:00：');
-        if (!timesInput) {
-            this.showError('时间列表不能为空');
-            return;
-        }
-
-        const times = timesInput.split(',').map(t => t.trim()).filter(Boolean);
-        if (!times.length) {
-            this.showError('时间列表不能为空');
-            return;
-        }
-
-        const labelsInput = window.prompt('可选：请输入每个时间的标题（用逗号分隔），例如：信号1,信号2,荣誉,团队,邀请；留空则使用“时间1/2/...”自动生成：');
-        let labels = [];
-        if (labelsInput && labelsInput.trim()) {
-            labels = labelsInput.split(',').map(l => l.trim()).filter(Boolean);
-        }
-
-        this.dynamicPresets[name] = {
-            country,
-            times,
-            labels
-        };
-
-        this.addCustomPresetButton(name);
-        this.showSuccess('模板已创建');
-    }
-
-    // 删除自定义模板
-    deleteCustomPreset() {
-        const names = Object.keys(this.dynamicPresets);
-        if (!names.length) {
-            this.showError('当前没有可删除的自定义模板');
-            return;
-        }
-
-        const name = window.prompt(`请输入要删除的模板名称：\n当前模板：${names.join(', ')}`);
-        if (!name || !this.dynamicPresets[name]) {
-            this.showError('未找到对应的自定义模板');
-            return;
-        }
-
-        delete this.dynamicPresets[name];
-
-        // 移除对应按钮
-        const presetArea = document.querySelector('.preset-buttons');
-        if (presetArea) {
-            const btn = presetArea.querySelector(`button[data-preset-name="${name}"]`);
-            if (btn) {
-                btn.remove();
-            }
-        }
-
-        this.showSuccess('模板已删除');
-    }
-
-    // 在页面上增加一个自定义模板按钮
-    addCustomPresetButton(name) {
-        const presetArea = document.querySelector('.preset-buttons');
-        if (!presetArea) return;
-
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-preset custom-preset';
-        btn.dataset.presetName = name;
-        btn.textContent = name;
-        btn.addEventListener('click', () => {
-            this.applyCustomPreset(name);
-        });
-
-        presetArea.appendChild(btn);
-    }
-
-    // 应用自定义模板
-    applyCustomPreset(name) {
-        const preset = this.dynamicPresets[name];
-        if (!preset) {
-            this.showError('未找到对应的自定义模板');
-            return;
-        }
-
-        this.selectedMainCountry = preset.country;
-        this.mainCountry = preset.country;
+    // 启程(6点) 预设（中国时间）
+    applyQichengAsiaPreset() {
+        // 设置主国家为中国（北京时间）
+        this.selectedMainCountry = '中国';
+        this.mainCountry = '中国';
         const mainCountryInput = document.getElementById('mainCountrySearch');
         if (mainCountryInput) {
-            mainCountryInput.value = preset.country;
+            mainCountryInput.value = '中国';
         }
         this.updateCountryStatus();
         this.updateTimezoneStatus();
 
-        const times = preset.times || [];
-        this.mainTimeLabels = preset.labels && preset.labels.length ? preset.labels : [];
+        // 启程(6点) 模板固定为 5 个时间
+        const times = ['18:00', '19:00', '20:00', '21:00', '22:00'];
+        const labels = ['信号1', '信号2', '荣誉', '团队', '邀请'];
+        this.mainTimeLabels = labels;
 
         const timeCountInput = document.getElementById('timeCount');
         if (timeCountInput) {
             timeCountInput.value = times.length;
         }
         this.generateTimeInputs();
+
+        // 设置时间（北京时间）
         this.fillTimeInputs(times);
+
+        // 自动设置主时间
         this.setMainTime();
-        this.showPresetSuccess(name);
+
+        // 显示成功提示
+        this.showPresetSuccess('启程(6点)');
+    }
+
+    // 启诚(10点) 预设（中国时间）
+    applyQichengTenPreset() {
+        // 设置主国家为中国（北京时间）
+        this.selectedMainCountry = '中国';
+        this.mainCountry = '中国';
+        const mainCountryInput = document.getElementById('mainCountrySearch');
+        if (mainCountryInput) {
+            mainCountryInput.value = '中国';
+        }
+        this.updateCountryStatus();
+        this.updateTimezoneStatus();
+
+        // 启诚(10点) 模板固定为 5 个时间
+        const times = ['22:00', '23:00', '00:00', '01:00', '02:00'];
+        const labels = ['信号1', '信号2', '荣誉', '团队', '邀请'];
+        this.mainTimeLabels = labels;
+
+        const timeCountInput = document.getElementById('timeCount');
+        if (timeCountInput) {
+            timeCountInput.value = times.length;
+        }
+        this.generateTimeInputs();
+
+        // 设置时间（北京时间）
+        this.fillTimeInputs(times);
+
+        // 自动设置主时间
+        this.setMainTime();
+
+        // 显示成功提示
+        this.showPresetSuccess('启诚(10点)');
     }
 
     // 初始化区域选择器
