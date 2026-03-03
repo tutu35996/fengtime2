@@ -1426,11 +1426,15 @@ class TimeZoneConverter {
     constructor() {
         this.mainCountry = null;
         this.mainTimes = [];
+        // 主时间对应的标题，例如 ['信号1','信号2','荣誉','团队','邀请']
+        this.mainTimeLabels = [];
         this.targetCountries = [];
         this.selectedMainCountry = null;
         this.selectedTargetCountry = null;
         this.timezoneCache = new Map(); // 时区数据缓存
         this.cacheExpiry = 5 * 60 * 1000; // 缓存5分钟
+        // 动态自定义模板（通过密码管理）
+        this.dynamicPresets = {};
         
         this.init();
     }
@@ -1490,34 +1494,21 @@ class TimeZoneConverter {
             this.generateTimeInputs();
         });
 
-        // 预设按钮事件
-        document.getElementById('presetAG').addEventListener('click', () => {
-            this.applyPresetAG();
-        });
+        // 启诚(欧洲时间) 预设按钮事件
+        const qichengBtn = document.getElementById('presetQichengEurope');
+        if (qichengBtn) {
+            qichengBtn.addEventListener('click', () => {
+                this.applyQichengEuropePreset();
+            });
+        }
 
-        document.getElementById('presetSW').addEventListener('click', () => {
-            this.applyPresetSW();
-        });
-
-        document.getElementById('presetNewEra').addEventListener('click', () => {
-            this.applyPresetNewEra();
-        });
-
-        document.getElementById('presetPictetEurope').addEventListener('click', () => {
-            this.applyPresetPictetEurope();
-        });
-
-        document.getElementById('presetPictetSouthAmerica').addEventListener('click', () => {
-            this.applyPresetPictetSouthAmerica();
-        });
-
-        document.getElementById('presetPictetOceania').addEventListener('click', () => {
-            this.applyPresetPictetOceania();
-        });
-
-        document.getElementById('presetPictetAsia').addEventListener('click', () => {
-            this.applyPresetPictetAsia();
-        });
+        // 模板管理（需要密码）
+        const manageBtn = document.getElementById('managePresets');
+        if (manageBtn) {
+            manageBtn.addEventListener('click', () => {
+                this.openPresetManager();
+            });
+        }
     }
 
     generateTimeInputs() {
@@ -1890,6 +1881,9 @@ class TimeZoneConverter {
         mainCard.className = 'time-result-card';
         mainCard.dataset.country = this.mainCountry;
         mainCard.dataset.isMain = 'true';
+        const mainLabels = this.mainTimeLabels && this.mainTimeLabels.length
+            ? this.mainTimeLabels
+            : this.mainTimes.map((_, idx) => `时间${idx + 1}`);
         mainCard.innerHTML = `
             <div class="time-result-card-header">
                 <h3>
@@ -1901,7 +1895,15 @@ class TimeZoneConverter {
                 </button>
             </div>
             <div class="multiple-times">
-                ${this.mainTimes.map(time => `<span class="time-chip">${time}</span>`).join('')}
+                ${this.mainTimes.map((time, idx) => {
+                    const label = mainLabels[idx] || `时间${idx + 1}`;
+                    return `
+                        <span class="time-chip" data-index="${idx}">
+                            <span class="time-label">${label}</span>
+                            <span class="time-value">${time}</span>
+                        </span>
+                    `;
+                }).join('')}
             </div>
         `;
         results.appendChild(mainCard);
@@ -1998,7 +2000,18 @@ class TimeZoneConverter {
                             </button>
                         </div>
                         <div class="multiple-times">
-                            ${convertedTimes.map(time => `<span class="time-chip">${time}</span>`).join('')}
+                            ${convertedTimes.map((time, idx) => {
+                                const labels = this.mainTimeLabels && this.mainTimeLabels.length
+                                    ? this.mainTimeLabels
+                                    : convertedTimes.map((_, i) => `时间${i + 1}`);
+                                const label = labels[idx] || `时间${idx + 1}`;
+                                return `
+                                    <span class="time-chip" data-index="${idx}">
+                                        <span class="time-label">${label}</span>
+                                        <span class="time-value">${time}</span>
+                                    </span>
+                                `;
+                            }).join('')}
                         </div>
                     `;
                 }, 300); // 300ms延迟，让用户看到--:--状态
@@ -2770,17 +2783,17 @@ class TimeZoneConverter {
         const country = card.dataset.country;
         const isMain = card.dataset.isMain === 'true';
         const timeChips = card.querySelectorAll('.time-chip:not(.loading):not(.error)');
-        const times = Array.from(timeChips).map(chip => chip.textContent.trim()).filter(t => t && t !== '--:--');
+        const lines = Array.from(timeChips).map(chip => chip.textContent.trim()).filter(t => t && t !== '--:--');
         
-        if (!country || times.length === 0) {
+        if (!country || lines.length === 0) {
             this.showError('暂无有效时间可复制');
             return;
         }
         
         const title = isMain ? `${country} (主时间)` : `${country}交易时间`;
         let text = `• ${title}\n`;
-        times.forEach((time, i) => {
-            text += `信号${i + 1}:  ${time}\n`;
+        lines.forEach(line => {
+            text += `${line}\n`;
         });
         
         navigator.clipboard.writeText(text).then(() => {
@@ -3345,173 +3358,171 @@ class TimeZoneConverter {
         }
     }
 
-    // AG(欧洲)预设
-    applyPresetAG() {
+    // 启诚(欧洲时间) 预设（中国时间）
+    applyQichengEuropePreset() {
         // 设置主国家为中国（北京时间）
         this.selectedMainCountry = '中国';
         this.mainCountry = '中国';
-        document.getElementById('mainCountrySearch').value = '中国';
+        const mainCountryInput = document.getElementById('mainCountrySearch');
+        if (mainCountryInput) {
+            mainCountryInput.value = '中国';
+        }
         this.updateCountryStatus();
         this.updateTimezoneStatus();
-        
-        // 设置时间个数为5
-        document.getElementById('timeCount').value = 5;
+
+        // 启诚模板固定为 5 个时间
+        const times = ['22:00', '23:00', '00:00', '01:00', '02:00'];
+        const labels = ['信号1', '信号2', '荣誉', '团队', '邀请'];
+        this.mainTimeLabels = labels;
+
+        const timeCountInput = document.getElementById('timeCount');
+        if (timeCountInput) {
+            timeCountInput.value = times.length;
+        }
         this.generateTimeInputs();
-        
+
         // 设置时间（北京时间）
-        const times = ['18:00', '20:00', '23:00', '01:00', '02:00'];
         this.fillTimeInputs(times);
-        
+
         // 自动设置主时间
         this.setMainTime();
-        
+
         // 显示成功提示
-        this.showPresetSuccess('AG(欧洲)');
+        this.showPresetSuccess('启诚(欧洲时间)');
     }
 
+    // 打开模板管理（新增/删除自定义模板），需要密码 fengyun
+    openPresetManager() {
+        const password = window.prompt('请输入模板管理密码：');
+        if (password !== 'fengyun') {
+            this.showError('密码错误');
+            return;
+        }
 
-    // SW(欧洲)预设
-    applyPresetSW() {
-        // 设置主国家为中国（北京时间）
-        this.selectedMainCountry = '中国';
-        this.mainCountry = '中国';
-        document.getElementById('mainCountrySearch').value = '中国';
-        this.updateCountryStatus();
-        this.updateTimezoneStatus();
-        
-        // 设置时间个数为4
-        document.getElementById('timeCount').value = 4;
-        this.generateTimeInputs();
-        
-        // 设置时间（北京时间）
-        const times = ['20:00', '00:00', '02:00', '03:00'];
-        this.fillTimeInputs(times);
-        
-        // 自动设置主时间
-        this.setMainTime();
-        
-        // 显示成功提示
-        this.showPresetSuccess('SW(欧洲)');
+        const action = window.prompt('输入 1 新增模板，输入 2 删除模板：');
+        if (action === '1') {
+            this.createCustomPreset();
+        } else if (action === '2') {
+            this.deleteCustomPreset();
+        } else {
+            this.showError('未执行任何操作');
+        }
     }
 
-    // 新时代(欧洲)预设
-    applyPresetNewEra() {
-        // 设置主国家为中国（北京时间）
-        this.selectedMainCountry = '中国';
-        this.mainCountry = '中国';
-        document.getElementById('mainCountrySearch').value = '中国';
-        this.updateCountryStatus();
-        this.updateTimezoneStatus();
-        
-        // 设置时间个数为5
-        document.getElementById('timeCount').value = 5;
-        this.generateTimeInputs();
-        
-        // 设置时间（北京时间）
-        const times = ['20:00', '22:00', '00:00', '01:00', '02:00'];
-        this.fillTimeInputs(times);
-        
-        // 自动设置主时间
-        this.setMainTime();
-        
-        // 显示成功提示
-        this.showPresetSuccess('新时代(欧洲)');
+    // 交互式新增自定义模板
+    createCustomPreset() {
+        const name = window.prompt('请输入新模板名称：');
+        if (!name) {
+            this.showError('模板名称不能为空');
+            return;
+        }
+
+        const country = window.prompt('请输入主国家名称（例如：中国）：');
+        if (!country || !countryTimezones[country]) {
+            this.showError('主国家名称无效或不存在于配置中');
+            return;
+        }
+
+        const timesInput = window.prompt('请输入时间列表（24小时制），使用逗号分隔，例如：22:00,23:00,00:00：');
+        if (!timesInput) {
+            this.showError('时间列表不能为空');
+            return;
+        }
+
+        const times = timesInput.split(',').map(t => t.trim()).filter(Boolean);
+        if (!times.length) {
+            this.showError('时间列表不能为空');
+            return;
+        }
+
+        const labelsInput = window.prompt('可选：请输入每个时间的标题（用逗号分隔），例如：信号1,信号2,荣誉,团队,邀请；留空则使用“时间1/2/...”自动生成：');
+        let labels = [];
+        if (labelsInput && labelsInput.trim()) {
+            labels = labelsInput.split(',').map(l => l.trim()).filter(Boolean);
+        }
+
+        this.dynamicPresets[name] = {
+            country,
+            times,
+            labels
+        };
+
+        this.addCustomPresetButton(name);
+        this.showSuccess('模板已创建');
     }
 
-    // PICTET(欧洲)预设
-    applyPresetPictetEurope() {
-        // 设置主国家为中国（北京时间）
-        this.selectedMainCountry = '中国';
-        this.mainCountry = '中国';
-        document.getElementById('mainCountrySearch').value = '中国';
-        this.updateCountryStatus();
-        this.updateTimezoneStatus();
-        
-        // 设置时间个数为5
-        document.getElementById('timeCount').value = 5;
-        this.generateTimeInputs();
-        
-        // 设置时间（北京时间）
-        const times = ['17:30', '19:30', '22:30', '01:00', '02:00'];
-        this.fillTimeInputs(times);
-        
-        // 自动设置主时间
-        this.setMainTime();
-        
-        // 显示成功提示
-        this.showPresetSuccess('PICTET(欧洲)');
+    // 删除自定义模板
+    deleteCustomPreset() {
+        const names = Object.keys(this.dynamicPresets);
+        if (!names.length) {
+            this.showError('当前没有可删除的自定义模板');
+            return;
+        }
+
+        const name = window.prompt(`请输入要删除的模板名称：\n当前模板：${names.join(', ')}`);
+        if (!name || !this.dynamicPresets[name]) {
+            this.showError('未找到对应的自定义模板');
+            return;
+        }
+
+        delete this.dynamicPresets[name];
+
+        // 移除对应按钮
+        const presetArea = document.querySelector('.preset-buttons');
+        if (presetArea) {
+            const btn = presetArea.querySelector(`button[data-preset-name="${name}"]`);
+            if (btn) {
+                btn.remove();
+            }
+        }
+
+        this.showSuccess('模板已删除');
     }
 
-    // PICTET(南美洲)预设
-    applyPresetPictetSouthAmerica() {
-        // 设置主国家为中国（北京时间）
-        this.selectedMainCountry = '中国';
-        this.mainCountry = '中国';
-        document.getElementById('mainCountrySearch').value = '中国';
-        this.updateCountryStatus();
-        this.updateTimezoneStatus();
-        
-        // 设置时间个数为5
-        document.getElementById('timeCount').value = 5;
-        this.generateTimeInputs();
-        
-        // 设置时间（北京时间）
-        const times = ['00:30', '02:30', '05:30', '09:00', '10:00'];
-        this.fillTimeInputs(times);
-        
-        // 自动设置主时间
-        this.setMainTime();
-        
-        // 显示成功提示
-        this.showPresetSuccess('PICTET(南美洲)');
+    // 在页面上增加一个自定义模板按钮
+    addCustomPresetButton(name) {
+        const presetArea = document.querySelector('.preset-buttons');
+        if (!presetArea) return;
+
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-preset custom-preset';
+        btn.dataset.presetName = name;
+        btn.textContent = name;
+        btn.addEventListener('click', () => {
+            this.applyCustomPreset(name);
+        });
+
+        presetArea.appendChild(btn);
     }
 
-    // PICTET(大洋洲)预设
-    applyPresetPictetOceania() {
-        // 设置主国家为中国（北京时间）
-        this.selectedMainCountry = '中国';
-        this.mainCountry = '中国';
-        document.getElementById('mainCountrySearch').value = '中国';
-        this.updateCountryStatus();
-        this.updateTimezoneStatus();
-        
-        // 设置时间个数为5
-        document.getElementById('timeCount').value = 5;
-        this.generateTimeInputs();
-        
-        // 设置时间（北京时间）
-        const times = ['12:30', '13:30', '14:30', '17:00', '18:00'];
-        this.fillTimeInputs(times);
-        
-        // 自动设置主时间
-        this.setMainTime();
-        
-        // 显示成功提示
-        this.showPresetSuccess('PICTET(大洋洲)');
-    }
+    // 应用自定义模板
+    applyCustomPreset(name) {
+        const preset = this.dynamicPresets[name];
+        if (!preset) {
+            this.showError('未找到对应的自定义模板');
+            return;
+        }
 
-    // PICTET(亚洲)预设
-    applyPresetPictetAsia() {
-        // 设置主国家为中国（北京时间）
-        this.selectedMainCountry = '中国';
-        this.mainCountry = '中国';
-        document.getElementById('mainCountrySearch').value = '中国';
+        this.selectedMainCountry = preset.country;
+        this.mainCountry = preset.country;
+        const mainCountryInput = document.getElementById('mainCountrySearch');
+        if (mainCountryInput) {
+            mainCountryInput.value = preset.country;
+        }
         this.updateCountryStatus();
         this.updateTimezoneStatus();
-        
-        // 设置时间个数为5
-        document.getElementById('timeCount').value = 5;
+
+        const times = preset.times || [];
+        this.mainTimeLabels = preset.labels && preset.labels.length ? preset.labels : [];
+
+        const timeCountInput = document.getElementById('timeCount');
+        if (timeCountInput) {
+            timeCountInput.value = times.length;
+        }
         this.generateTimeInputs();
-        
-        // 设置时间（北京时间）
-        const times = ['17:30', '18:30', '19:30', '20:30', '22:00'];
         this.fillTimeInputs(times);
-        
-        // 自动设置主时间
         this.setMainTime();
-        
-        // 显示成功提示
-        this.showPresetSuccess('PICTET(亚洲)');
+        this.showPresetSuccess(name);
     }
 
     // 初始化区域选择器
